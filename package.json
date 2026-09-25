@@ -9,7 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "vue": "^3.5.42"
+    "@mdui/icons": "^1.0.4",
+    "axios": "^1.20.0",
+    "mdui": "^2.1.5",
+    "vue": "^3.5.42",
+    "vue-router": "^5.3.1"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
