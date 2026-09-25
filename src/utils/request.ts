@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { type AxiosInstance } from 'axios'
+import { type AxiosInstance, type AxiosResponse } from 'axios'
 import { useRouter } from 'vue-router'
 
 import { useUser } from '../composables/user'
@@ -46,11 +46,42 @@ class Request {
 
         if (cached) {
             headers['X-Cache'] = 'true'
-            headers['X-Cache-Hash'] = useCache(url).get() || ''
+            headers['X-Cache-Hash'] = useCache(url).getHash() || ''
 
         }
 
         return headers
+    }
+
+    private updateCache(url: string, response: AxiosResponse) {
+        const cache = useCache(url)
+
+
+        // 尝试读取缓存
+
+        if (response.status === 304) {
+            // 缓存命中，返回缓存数据
+            return useCache(url).getData() || null
+        } else {
+
+            // 缓存未命中，更新缓存
+            const hash = response.headers['x-cache-hash'] || ''
+            const data = response.data
+
+            if (hash) {
+                const cache = useCache(url)
+    
+                cache.setHash(hash)
+                cache.setData(data)
+
+
+            } else {
+                console.warn(`访问可缓存的接口“${url}”但是没有返回缓存hash`)
+            }
+        }
+
+        return response.data
+        
     }
 
 
@@ -59,14 +90,10 @@ class Request {
 
         return this.request.get<T>(url, { headers }).then((response) => {
             if (cached) {
-                const hash = response.headers['x-cache-hash'] || ''
-                if (hash) {
-                    useCache(url).set(hash)
-                } else {
-                    console.warn(`访问可缓存的接口“${url}”但是没有返回缓存hash`)
-                }
+                return this.updateCache(url, response)
+            } else {
+                return response.data
             }
-            return response.data
         })
     }
 
@@ -75,9 +102,10 @@ class Request {
 
         return this.request.post<T>(url, data, { headers }).then((response) => {
             if (cached) {
-                useCache(url).set(response.headers['x-cache-hash'] || '')
+                return this.updateCache(url, response)
+            } else {
+                return response.data
             }
-            return response.data
         })
     }
 
