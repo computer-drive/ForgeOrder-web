@@ -69,7 +69,6 @@ class Request {
             const data = response.data
 
             if (hash) {
-                const cache = useCache(url)
     
                 cache.setHash(hash)
                 cache.setData(data)
