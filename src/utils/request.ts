@@ -6,6 +6,21 @@ import { useUser } from '../composables/user'
 import { useCache } from '../composables/cache'
 
 
+interface Response<T> {
+    status: number
+    data: T
+}
+
+class NotModifiedError extends Error {
+    response: AxiosResponse
+
+    constructor(message: string, response: AxiosResponse) {
+        super(message)
+
+        this.response = response
+    }
+} // 304 未修改
+
 class Request {
     private request: AxiosInstance
 
@@ -15,18 +30,36 @@ class Request {
             timeout: 5000,
         })
 
-        // this.request.interceptors.request.use(
-        //     (config) => {
-        //         const token = getToken()
-        //         if (token) {
-        //             config.headers['Authorization'] = `Bearer ${token}`
-        //         }
-        //         return config
-        //     },
-        //     (error) => {
-        //         return Promise.reject(error)
-        //     }
-        // )
+        this.request.interceptors.request.use(
+            (config) => {
+
+                return config
+            },
+            (error) => {
+                return Promise.reject(error)
+            }
+        )
+
+        this.request.interceptors.response.use(
+            (response) => {
+                return response
+            },
+            (error) => {
+                // 处理响应错误
+                if (error.response?.status == 401) {
+                    // 处理401错误，跳转到登录页
+                    const router = useRouter()
+
+                    router.push('/login')
+                }
+
+                if (error.response?.status == 304) {
+                    throw new NotModifiedError("未修改", error.response)
+                }
+                
+                return Promise.reject(error)
+            }
+        )
     }
 
     private generateHeaders(url: string, requiresAuth: boolean, cached: boolean): Record<string, string> {
@@ -88,10 +121,12 @@ class Request {
         const headers = this.generateHeaders(url, requiresAuth, cached)
 
         return this.request.get<T>(url, { headers }).then((response) => {
+            return response.data
+        }).catch(error => {
             if (cached) {
-                return this.updateCache(url, response)
-            } else {
-                return response.data
+                if (error instanceof NotModifiedError) {
+                    return this.updateCache(url, error.response)
+                }
             }
         })
     }
@@ -100,16 +135,19 @@ class Request {
         const headers = this.generateHeaders(url, requiresAuth, cached)
 
         return this.request.post<T>(url, data, { headers }).then((response) => {
+            return response.data
+        }).catch(error => {
             if (cached) {
-                return this.updateCache(url, response)
-            } else {
-                return response.data
+                if (error instanceof NotModifiedError) {
+                    return this.updateCache(url, error.response)
+                }
             }
         })
     }
-
-
 }
+
+export const request = new Request()
+
 
 
 
