@@ -6,7 +6,7 @@ import { useUser } from '../composables/user'
 import { useCache } from '../composables/cache'
 
 
-interface Response<T> {
+interface ApiResponse<T> {
     status: number
     data: T
 }
@@ -117,32 +117,43 @@ class Request {
     }
 
 
-    get<T>(url: string, requiresAuth: boolean = true, cached: boolean = false): Promise<T> {
+    async get<T>(url: string, requiresAuth: boolean = true, cached: boolean = false): Promise<ApiResponse<T>> {
         const headers = this.generateHeaders(url, requiresAuth, cached)
 
-        return this.request.get<T>(url, { headers }).then((response) => {
+        try {
+            const response = await this.request.get<ApiResponse<T>>(url, { headers })
+
             return response.data
-        }).catch(error => {
+
+        } catch (error) {
             if (cached) {
                 if (error instanceof NotModifiedError) {
                     return this.updateCache(url, error.response)
                 }
             }
-        })
+
+            throw error
+        }
+        
     }
 
-    post<T>(url: string, data: any, requiresAuth: boolean = true, cached: boolean = false): Promise<T> {
+    async post<T>(url: string, data: any, requiresAuth: boolean = true, cached: boolean = false): Promise<ApiResponse<T>> {
         const headers = this.generateHeaders(url, requiresAuth, cached)
+        
+        try {
+            const response = await this.request.post<ApiResponse<T>>(url, data, { headers })
 
-        return this.request.post<T>(url, data, { headers }).then((response) => {
             return response.data
-        }).catch(error => {
+
+        } catch(error)  {
             if (cached) {
                 if (error instanceof NotModifiedError) {
                     return this.updateCache(url, error.response)
                 }
             }
-        })
+
+            throw error
+        }
     }
 }
 
